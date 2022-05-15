@@ -16,11 +16,9 @@ services:
     networks:
       - proxynet
 
-
-
   worker:
     build: .
-    command: celery -A core.celery.app worker -P threads --loglevel=info
+    command: celery -A core.celery.app worker -P threads --loglevel=info --logfile=celery.log
     volumes:
       - ./:/usr/stat_inc/
     environment:
@@ -37,10 +35,17 @@ services:
     networks:
       - proxynet
 
-  selenium:
-    image: selenium/standalone-chrome
+  selenium_bots_creation:
+    image: selenium/standalone-chrome:101.0
     ports:
-      - 4444:4444
+      - "4445:4444"
+    networks:
+      - proxynet
+
+  selenium_boost:
+    image: selenium/standalone-chrome:101.0
+    ports:
+      - "4444:4444"
     networks:
       - proxynet
 

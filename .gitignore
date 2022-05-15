@@ -1,3 +1,4 @@
 /.idea
 __pycache__/
 bot_service_logs.log
+celery.log

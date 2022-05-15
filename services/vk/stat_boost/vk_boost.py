@@ -1,12 +1,12 @@
 """VK boost service module"""
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
-from selenium.webdriver import Keys, ActionChains, DesiredCapabilities
+from selenium.webdriver import Keys, ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium import webdriver
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common import exceptions
-from webdriver_manager.chrome import ChromeDriverManager
+
 
 from core.config import logger
 
@@ -92,10 +92,11 @@ class VKBoostService:
             None
         """
 
-        # options = uc.ChromeOptions()
-        # options.add_argument("--headless")
+        options = webdriver.ChromeOptions()
+        options.add_argument("--headless")
+        options.add_argument('--disable-dev-shm-usage')
 
-        self.driver = webdriver.Remote("http://selenium:4444/wd/hub", DesiredCapabilities.CHROME)
+        self.driver = webdriver.Remote("http://selenium_boost:4444/wd/hub", options=options)
         self.driver.implicitly_wait(5)
 
     def _remove_email_check_box(self) -> None:
@@ -114,7 +115,7 @@ class VKBoostService:
                 )
             )
 
-            input_email = browser.find_element_by_id(VKBoostService.EMAIL_INPUT)
+            input_email = browser.find_element(By.ID, VKBoostService.EMAIL_INPUT)
             input_email.send_keys(Keys.ESCAPE)
 
         except exceptions.TimeoutException:
@@ -156,12 +157,17 @@ class VKBoostService:
         browser = self.driver
         browser.get(profile)
 
-        browser.find_elements_by_class_name(VKBoostService.SUBSCRIBE_BTN)[1].click()
+        try:
+            browser.find_elements(By.CLASS_NAME, VKBoostService.SUBSCRIBE_BTN)[1].click()
+
+        except NoSuchElementException:
+            logger.info(f"This {profile} already like by this bot.")
 
         try:
             WebDriverWait(browser, VKBoostService.TIME_OUT).until(
                 EC.presence_of_element_located((By.XPATH, VKBoostService.PAGE_ACTIONS))
             )
+
         except TimeoutException:
             logger.info(f"Like to {profile} added.")
 
