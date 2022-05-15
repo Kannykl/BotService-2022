@@ -9,11 +9,13 @@ class SocialNetService(ABC):
     """Social net service"""
 
     @abstractmethod
-    async def create_bots(self, count: int):
+    def create_bots(self, count: int):
         """Create bots in social net"""
 
     @abstractmethod
-    async def boost_statistics(self, link: str, wished_count: int, type_of_boost: str, data: list):
+    def boost_statistics(
+        self, link: str, wished_count: int, boost_type: str, data: list
+    ):
         """Boost stat in social net"""
 
 
@@ -26,7 +28,7 @@ class VKService(SocialNetService):
     def __init__(self, bot_service: CreateVkBotsService):
         self.bot_service = bot_service
 
-    async def create_bots(self, count: int) -> list:
+    def create_bots(self, count: int) -> list:
         """Create bots.
 
         Args:
@@ -38,15 +40,15 @@ class VKService(SocialNetService):
         bots_info = []
 
         for _ in range(int(count)):
-            data = await self.bot_service.generate_data_for_bot()
+            data = self.bot_service.generate_data_for_bot()
 
-            phone, password = await self.bot_service.register_bot(data)
+            phone, password = self.bot_service.register_bot(data)
 
             bots_info.append((phone, password))
 
         return bots_info
 
-    async def boost_statistics(
+    def boost_statistics(
         self, link: str, wished_count: int, boost_type: str, data: list
     ) -> None:
         """Boost stat in vk.
@@ -63,7 +65,7 @@ class VKService(SocialNetService):
 
         count_of_bots = len(data)
 
-        if count_of_bots < wished_count:
+        if count_of_bots < int(wished_count):
             wished_count = count_of_bots
 
         for bot in data:
@@ -71,9 +73,10 @@ class VKService(SocialNetService):
             if wished_count != 0:
 
                 if boost_type == VKService.BOOST_TYPE1:
-                    await VKBoostService(bot['username'], bot['password']).like_post(link)
+
+                    VKBoostService(bot["username"], bot["password"]).like_post(link)
 
                 elif boost_type == VKService.BOOST_TYPE2:
-                    await VKBoostService(bot['username'], bot['password']).subscribe(link)
+                    VKBoostService(bot["username"], bot["password"]).subscribe(link)
 
             wished_count -= 1

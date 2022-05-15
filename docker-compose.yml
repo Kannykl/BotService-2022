@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
 
-  web:
+  bot_service:
     build: .
     ports:
       - "8001:8000"
@@ -13,18 +13,38 @@ services:
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
     depends_on:
       - redis
+    networks:
+      - proxynet
+
+
 
   worker:
     build: .
-    command: celery -A core.celery.app worker --loglevel=info
+    command: celery -A core.celery.app worker -P threads --loglevel=info
     volumes:
       - ./:/usr/stat_inc/
     environment:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
     depends_on:
-      - web
+      - bot_service
       - redis
+    networks:
+      - proxynet
 
   redis:
     image: redis:6-alpine
+    networks:
+      - proxynet
+
+  selenium:
+    image: selenium/standalone-chrome
+    ports:
+      - 4444:4444
+    networks:
+      - proxynet
+
+
+networks:
+  proxynet:
+    name: custom_network
