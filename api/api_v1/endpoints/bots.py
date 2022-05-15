@@ -1,68 +1,75 @@
 """Endpoints for work with bots"""
+from celery import group, chord
+from celery.result import AsyncResult
+from fastapi import APIRouter, status, Request, Body
+from schemas.task import Task, BoostTask, BoostTaskIn
+from services.vk.stat_boost.tasks import boost_stat_task, free_bot
 
-from fastapi import APIRouter, status, Depends, Request
-from api.depends import get_vk_service
-from schemas.task import Task
-from services.vk.vk_service import VKService
-from core.config import logger
-from services.vk.bots_creation.tasks import create_bots_task
-from core.celery import Status
-
+from services.vk.bots_creation.tasks import (
+    create_bots_task,
+    create_bots_listener,
+    update_task_status,
+)
 
 router = APIRouter()
 
 
 @router.post(
-    "/create_bots/{count}",
-    response_model=Task,
-    status_code=status.HTTP_200_OK
+    "/create_bots/{count}", response_model=Task, status_code=status.HTTP_200_OK
 )
 async def run_create_bots_task(count: int, request: Request):
-    """Create one bot in social net VK."""
-    db_client = request.app.db_client
+    """Create bots in social net VK."""
 
-    created_task = create_bots_task.delay(count)
+    created_tasks = group(
+        create_bots_task.signature(link=create_bots_listener.s()) for _ in range(count)
+    )()
 
-    task = Task(
-        _id=created_task.id,
-        owner="stub_user",
-        status=Status.PENDING
-    )
+    created_tasks.save()
 
-    created_bots = []
+    task = {
+        "_id": created_tasks.id,
+        "owner": "user_stub@mail.ru",
+        "status": AsyncResult(created_tasks.id).status,
+        "count": count,
+    }
 
-    for bot in created_task.result:
-        response = await db_client.post(f"create_bot/", json={
-            "bot": {
-                "username": f"+7{bot[0]}",
-                "password": bot[1]
-            }})
+    response = await request.app.db_client.post("create_task/bot/", json={"task": task})
 
-        logger.info(f"Created new bot {bot[0]}")
+    update_task_status.delay(created_tasks.id)
 
-        created_bots.append(response.json())
-
-    return created_bots
+    return Task.parse_obj(response.json())
 
 
 @router.post(
-    "/boost_stat/{boot_type}/{link}/{count}",
-    response_model=Task,
-    status_code=status.HTTP_200_OK
+    "/boost_stat/",
+    response_model=BoostTask,
+    status_code=status.HTTP_200_OK,
 )
 async def boost_stat(
-        boost_type: str,
-        link: str,
-        count: int,
-        request: Request,
-        vk_service: VKService = Depends(get_vk_service)
+    request: Request,
+    boost_info: BoostTaskIn = Body(..., embed=True),
 ):
+    """Boost sub to a profile or add like to the post"""
     db_client = request.app.db_client
-    free_bots = await db_client.get(f"/db/get_free_bots/?count={count}")
 
-    for bot in free_bots:
-        await db_client.patch(f"/db/update_bot/busy/?username={bot['username']}")
+    created_tasks = chord(
+        (
+            boost_stat_task.signature((boost_info.link, 1, boost_info.boost_type))
+            for _ in range(boost_info.count)
+        ),
+        free_bot.s(),
+    )()
 
-        logger.info(f"Bot {bot['username']} has been updated status to busy")
+    task = {
+        "_id": created_tasks.id,
+        "owner": "user_stub@mail.ru",
+        "status": AsyncResult(created_tasks.id).status,
+        "count": boost_info.count,
+        "boost_type": boost_info.boost_type,
+        "link": boost_info.link,
+    }
 
-    await vk_service.boost_statistics(link, count, boost_type, free_bots)
+    response = await db_client.post("create_task/boost/", json={"task": task})
+    update_task_status.delay(created_tasks.id)
+
+    return BoostTask.parse_obj(response.json())

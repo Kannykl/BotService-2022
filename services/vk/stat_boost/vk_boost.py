@@ -1,11 +1,13 @@
 """VK boost service module"""
-
-from selenium.webdriver import Keys, ActionChains
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
+from selenium.webdriver import Keys, ActionChains, DesiredCapabilities
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
-import undetected_chromedriver as uc
+from selenium import webdriver
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common import exceptions
+from webdriver_manager.chrome import ChromeDriverManager
+
 from core.config import logger
 
 
@@ -37,7 +39,7 @@ class VKBoostService:
             password(str): password.
         """
 
-        self.username = username
+        self.username = f"+7{username}"
         self.password = password
         self._setup_driver()
 
@@ -46,10 +48,9 @@ class VKBoostService:
 
         self._input_login()
         self._input_passwrd()
-
         self._remove_email_check_box()
 
-    async def _input_login(self) -> None:
+    def _input_login(self) -> None:
         """Input login in a form.
 
         Returns:
@@ -57,42 +58,47 @@ class VKBoostService:
         """
 
         driver = self.driver
-
-        login_btn = driver.find_elements_by_class_name(VKBoostService.LOGIN_BTN)[1]
+        login_btn = driver.find_elements(By.CLASS_NAME, VKBoostService.LOGIN_BTN)[0]
         login_btn.click()
-
         login_input = driver.find_element(By.CLASS_NAME, VKBoostService.LOGIN_INPUT)
         login_input.send_keys(self.username + Keys.ENTER)
 
-    async def _input_passwrd(self) -> None:
+    def _input_passwrd(self) -> None:
         """Input password in a form.
 
         Returns:
             None
         """
+        try:
+            self.driver.find_elements(By.CLASS_NAME, VKBoostService.SWITCH_TO_PASSWORD)[
+                0
+            ].click()
 
-        self.driver.find_element(By.CLASS_NAME, VKBoostService.SWITCH_TO_PASSWORD).click()
+            password_input = self.driver.find_elements(
+                By.CLASS_NAME, VKBoostService.PASSWORD_INPUT
+            )[1]
 
-        password_input = self.driver.find_element(
-            By.CLASS_NAME, VKBoostService.PASSWORD_INPUT
-        )
+        except NoSuchElementException:
+            logger.error("Error during input passwrd: didnt find an element")
+            self.driver.quit()
+            return
 
         password_input.send_keys(self.password + Keys.ENTER)
 
-    async def _setup_driver(self) -> None:
+    def _setup_driver(self) -> None:
         """Setup driver.
 
         Returns:
             None
         """
 
-        options = uc.ChromeOptions()
-        options.add_argument("--headless")
+        # options = uc.ChromeOptions()
+        # options.add_argument("--headless")
 
-        self.driver = uc.Chrome(version_main=100, options=options)
+        self.driver = webdriver.Remote("http://selenium:4444/wd/hub", DesiredCapabilities.CHROME)
         self.driver.implicitly_wait(5)
 
-    async def _remove_email_check_box(self) -> None:
+    def _remove_email_check_box(self) -> None:
         """Remove email check box.
 
         Returns:
@@ -103,7 +109,9 @@ class VKBoostService:
 
         try:
             WebDriverWait(browser, VKBoostService.TIME_OUT).until(
-                EC.presence_of_element_located((By.CLASS_NAME, VKBoostService.EMAIL_BOX))
+                EC.presence_of_element_located(
+                    (By.CLASS_NAME, VKBoostService.EMAIL_BOX)
+                )
             )
 
             input_email = browser.find_element_by_id(VKBoostService.EMAIL_INPUT)
@@ -112,7 +120,7 @@ class VKBoostService:
         except exceptions.TimeoutException:
             logger.info("No email checkbox was found.")
 
-    async def like_post(self, post: str) -> None:
+    def like_post(self, post: str) -> None:
         """Add like for post.
 
         Args:
@@ -136,7 +144,7 @@ class VKBoostService:
 
         self.driver.close()
 
-    async def subscribe(self, profile: str) -> None:
+    def subscribe(self, profile: str) -> None:
         """Add one sub to profile.
 
         Args:
@@ -150,10 +158,11 @@ class VKBoostService:
 
         browser.find_elements_by_class_name(VKBoostService.SUBSCRIBE_BTN)[1].click()
 
-        WebDriverWait(browser, VKBoostService.TIME_OUT).until(
-            EC.presence_of_element_located(
-                (By.XPATH, VKBoostService.PAGE_ACTIONS)
+        try:
+            WebDriverWait(browser, VKBoostService.TIME_OUT).until(
+                EC.presence_of_element_located((By.XPATH, VKBoostService.PAGE_ACTIONS))
             )
-        )
+        except TimeoutException:
+            logger.info(f"Like to {profile} added.")
 
         self.driver.close()

@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     PHONE_STOCK_API_KEY: str = "7c9843e906424458ef8cdb3f5e2d405e"
     CELERY_BROKER_URL: str = "redis://localhost:6379"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379"
+    BASE_DB_URL: str = "http://web:8000/db"
 
     class Config:
         case_sensitive = True

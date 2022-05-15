@@ -24,7 +24,7 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 
 @app.on_event("startup")
 async def start_up_db_client():
-    app.db_client = AsyncClient(base_url="http://localhost:8003/db/")
+    app.db_client = AsyncClient(base_url=settings.BASE_DB_URL)
 
 
 if __name__ == '__main__':

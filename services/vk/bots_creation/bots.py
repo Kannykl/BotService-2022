@@ -1,10 +1,10 @@
 """Bots creation module"""
-
 from abc import ABC, abstractmethod
 
 from selenium.common.exceptions import (
     NoSuchElementException,
     TimeoutException,
+    StaleElementReferenceException,
 )
 from selenium.webdriver import Keys
 
@@ -19,7 +19,8 @@ import random
 from mimesis import Person
 from mimesis.enums import Gender, Locale
 from core.config import logger
-import undetected_chromedriver as uc
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
 
 MONTHS: tuple = (
@@ -38,12 +39,12 @@ class CreateBotsService(ABC):
     """Create bots service"""
 
     @abstractmethod
-    async def register_bot(self, data):
+    def register_bot(self, data):
         """Register bot in social net"""
 
     @staticmethod
     @abstractmethod
-    async def generate_data_for_bot():
+    def generate_data_for_bot():
         """Generate data for registration"""
 
 
@@ -53,6 +54,8 @@ class CreateVkBotsService(CreateBotsService):
     MAIN_PAGE: str = "https://vk.com/"
 
     TIME_OUT: int = 10
+    SMS_MAX_RESEND_TIME: int = 2
+
     NAME_INPUT: str = "vkc__TextField__input"
     SURNAME_INPUT: str = "vkc__TextField__input"
     SEX_BTN: str = "vkc__Switcher__button"
@@ -60,10 +63,6 @@ class CreateVkBotsService(CreateBotsService):
     PASSWRD_INPUT: str = "Input__el"
     CODE_INPUT: str = "vkc__TextField__input"
     PHONE_INPUT: str = "vkc__TextField__input"
-    ERROR_WINDOW: str = "error"
-    CALL_MSG: str = "join_called_phone_wrap"
-    RESEND_LINK: str = "join_resend_lnk"
-    SKIP_LINK: str = "join_skip_link"
     CONTINUE_BTN: str = "vkc__Button__title"
     REGISTRATE_BTN: str = "VkIdForm__button"
     NOT_VALID_ACCOUNT: str = "vkc__EnterPasswordHasUserInfo__link"
@@ -83,7 +82,7 @@ class CreateVkBotsService(CreateBotsService):
         self.phone_stock = phone_stock
         self._setup_driver()
 
-    async def register_bot(self, data: tuple) -> tuple[str, str] | int:
+    def register_bot(self, data: tuple) -> tuple[str, str] | int:
         """Register bot in a social net.
 
         Args:
@@ -100,18 +99,18 @@ class CreateVkBotsService(CreateBotsService):
         try:
             name, surname, sex = data[0], data[1], data[2]
 
-            phone = await self.phone_stock.buy_phone(CreateVkBotsService.SOCIAL_NET)
-            return_code = await self._phone_input(phone)
+            phone = self.phone_stock.buy_phone(CreateVkBotsService.SOCIAL_NET)
+            self._phone_input(phone)
 
-            if return_code:
+            code = self._get_sms_or_call()
+            error = self._input_code(code, phone)
+
+            if error:
                 return -1
 
-            code = await self._get_sms_or_call()
-            await self._input_code(code, phone)
+            self._input_generated_data(name, surname, sex)
 
-            await self._input_generated_data(name, surname, sex)
-
-            password = await self._set_password()
+            password = self._set_password()
 
             return phone, password
 
@@ -126,13 +125,13 @@ class CreateVkBotsService(CreateBotsService):
             None
         """
 
-        options = uc.ChromeOptions()
-        options.add_argument("--headless")
+        # options = uc.ChromeOptions()
+        # options.add_argument("--headless")
 
-        self.driver = uc.Chrome(version_main=100, options=options)
+        self.driver = webdriver.Remote("http://selenium:4444/wd/hub", DesiredCapabilities.CHROME)
         self.driver.implicitly_wait(5)
 
-    async def _input_generated_data(self, name: str, surname: str, sex: int) -> None:
+    def _input_generated_data(self, name: str, surname: str, sex: int) -> None:
         """Input generated data in a form.
 
         Args:
@@ -146,10 +145,14 @@ class CreateVkBotsService(CreateBotsService):
 
         driver = self.driver
 
-        name_input = driver.find_elements(By.CLASS_NAME, CreateVkBotsService.NAME_INPUT)[0]
+        name_input = driver.find_elements(
+            By.CLASS_NAME, CreateVkBotsService.NAME_INPUT
+        )[0]
         name_input.send_keys(name)
 
-        surname_input = driver.find_elements(By.CLASS_NAME, CreateVkBotsService.SURNAME_INPUT)[1]
+        surname_input = driver.find_elements(
+            By.CLASS_NAME, CreateVkBotsService.SURNAME_INPUT
+        )[1]
         surname_input.send_keys(surname)
 
         sex_buttons = driver.find_elements(By.CLASS_NAME, CreateVkBotsService.SEX_BTN)
@@ -180,7 +183,7 @@ class CreateVkBotsService(CreateBotsService):
             0, 100
         ).click().perform()
 
-        driver.find_element_by_class_name(CreateVkBotsService.CONTINUE_BTN).click()
+        driver.find_element(By.CLASS_NAME, CreateVkBotsService.CONTINUE_BTN).click()
 
         try:
             WebDriverWait(driver, CreateVkBotsService.TIME_OUT).until(
@@ -191,43 +194,32 @@ class CreateVkBotsService(CreateBotsService):
         except TimeoutException:
             logger.info("Bot is created.")
 
-    async def _phone_input(self, phone: str) -> int | None:
+    def _phone_input(self, phone: str) -> None:
         """Phone input in a form.
 
         Args:
             phone(str): Phone number.
 
         Returns:
-            -1 or None: -1 if phone number is not valid.
+            None
         """
 
         driver = self.driver
 
-        registrate_button = driver.find_elements_by_class_name(CreateVkBotsService.REGISTRATE_BTN)[1]
+        registrate_button = driver.find_elements(By.CLASS_NAME,
+                                                 CreateVkBotsService.REGISTRATE_BTN
+                                                 )[1]
         registrate_button.click()
 
         phone_input = WebDriverWait(driver, CreateVkBotsService.TIME_OUT).until(
-            EC.presence_of_element_located((By.CLASS_NAME, CreateVkBotsService.PHONE_INPUT))
+            EC.presence_of_element_located(
+                (By.CLASS_NAME, CreateVkBotsService.PHONE_INPUT)
+            )
         )
 
         phone_input.send_keys(phone + Keys.ENTER)
 
-        try:
-            WebDriverWait(driver, CreateVkBotsService.TIME_OUT).until(
-                EC.presence_of_element_located(
-                    (By.CLASS_NAME, CreateVkBotsService.ERROR_WINDOW)
-                )
-            )
-
-            logger.error(f"{phone} is not valid")
-            driver.quit()
-
-            return -1
-
-        except TimeoutException:
-            logger.info(f"{phone} is valid")
-
-    async def _get_sms_or_call(self) -> str:
+    def _get_sms_or_call(self) -> str | None:
         """Get code from sms or call.
 
         Returns:
@@ -235,41 +227,32 @@ class CreateVkBotsService(CreateBotsService):
         """
 
         driver = self.driver
+        code = self.phone_stock.get_code()
 
-        try:
-            WebDriverWait(driver, CreateVkBotsService.TIME_OUT).until(
-                EC.presence_of_element_located(
-                    (By.CLASS_NAME, CreateVkBotsService.CALL_MSG)
-                )
-            )
+        count = 0
 
-            code = self.phone_stock.get_code()
+        while not code:
+            try:
+                count += 1
 
-            if not code:
+                if count - 1 == CreateVkBotsService.SMS_MAX_RESEND_TIME:
+                    return None
+
                 sms_btn = WebDriverWait(driver, CreateVkBotsService.TIME_OUT).until(
-                    EC.presence_of_element_located(
-                        (By.ID, CreateVkBotsService.RESEND_LINK)
+                    EC.presence_of_all_elements_located(
+                        (By.CLASS_NAME, "vkc__Link__primary")
                     )
                 )
-                sms_btn.click()
+                sms_btn[2].click()
 
-        except TimeoutException:
-            code = self.phone_stock.get_code()
+                code = self.phone_stock.get_code()
 
-            if not code:
-                sms_btn = WebDriverWait(driver, CreateVkBotsService.TIME_OUT).until(
-                    EC.presence_of_element_located(
-                        (By.ID, CreateVkBotsService.RESEND_LINK)
-                    )
-                )
-
-                sms_btn.click()
-
-        code = await self.phone_stock.get_code()
+            except NoSuchElementException:
+                return None
 
         return code
 
-    async def _input_code(self, code: str, phone: str) -> None:
+    def _input_code(self, code: str, phone: str) -> int | None:
         """Input code in a form.
 
         Args:
@@ -284,7 +267,9 @@ class CreateVkBotsService(CreateBotsService):
 
         if code:
             code_input = WebDriverWait(driver, CreateVkBotsService.TIME_OUT).until(
-                EC.presence_of_element_located((By.CLASS_NAME, CreateVkBotsService.CODE_INPUT))
+                EC.presence_of_element_located(
+                    (By.CLASS_NAME, CreateVkBotsService.CODE_INPUT)
+                )
             )
 
             code_input.send_keys(code + Keys.ENTER)
@@ -298,6 +283,7 @@ class CreateVkBotsService(CreateBotsService):
 
                 logger.error(f"{phone} is not valid")
                 driver.close()
+                return -1
 
             except TimeoutException:
                 logger.info(f"{phone} is valid")
@@ -305,27 +291,47 @@ class CreateVkBotsService(CreateBotsService):
         else:
             logger.error(f"{phone} doesnt receive a code")
             driver.close()
+            return -1
 
-    async def _set_password(self):
+    def _set_password(self):
         """Set password for new account."""
         driver = self.driver
         driver.get("https://id.vk.com/account/#/password-change")
 
         call_me = driver.find_element(By.CLASS_NAME, CreateVkBotsService.BTN)
-        call_me.click()
+        webdriver.ActionChains(driver).move_to_element(call_me).click().move_by_offset(
+            0, 25
+        ).click().perform()
 
-        continue_btn = driver.find_elements(By.TAG_NAME, "button")[1]
-        continue_btn.click()
+        try:
+            WebDriverWait(
+                driver,
+                CreateVkBotsService.TIME_OUT,
+                ignored_exceptions=(
+                    StaleElementReferenceException,
+                    NoSuchElementException,
+                ),
+            ).until(EC.presence_of_element_located((By.TAG_NAME, "button")))
+            btn = driver.find_elements(By.TAG_NAME, "button")[1]
+            btn.click()
+        except TimeoutException or StaleElementReferenceException:
+            logger.error("Continue button is not located in this page")
+            driver.close()
+            return None
 
-        code = await self.phone_stock.get_code()
+        code = self._get_sms_or_call()
 
-        code_input = driver.find_element(By.CLASS_NAME, CreateVkBotsService.PASSWRD_INPUT)
-        code_input.send_keys(code)
+        code_input = driver.find_element(
+            By.CLASS_NAME, CreateVkBotsService.PASSWRD_INPUT
+        )
+        code_input.send_keys(code + Keys.ENTER)
 
         passwrd = pwgenerator.generate()
-        password_inputs = driver.find_elements(By.CLASS_NAME, CreateVkBotsService.PASSWRD_INPUT)
+        password_inputs = driver.find_elements(
+            By.CLASS_NAME, CreateVkBotsService.PASSWRD_INPUT
+        )
         password_inputs[0].send_keys(passwrd)
-        password_inputs[1].send_keys(passwrd)
+        password_inputs[1].send_keys(passwrd + Keys.TAB + Keys.ENTER)
 
         save_btn = driver.find_element(By.CLASS_NAME, CreateVkBotsService.BTN)
         save_btn.click()
@@ -333,7 +339,7 @@ class CreateVkBotsService(CreateBotsService):
         return passwrd
 
     @staticmethod
-    async def generate_data_for_bot() -> tuple[str, str, int]:
+    def generate_data_for_bot() -> tuple[str, str, int]:
         """Generate data.
 
         Returns:
