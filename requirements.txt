@@ -22,7 +22,7 @@ uvicorn==0.17.6
 loguru~=0.6.0
 onlinesimru~=1.0.17
 celery~=5.2.6
-undetected-chromedriver~=3.1.5.post4
 passwordgenerator~=1.5.1
 mimesis~=5.3.0
 redis~=4.2.2
+selenium~=4.1.3

@@ -19,9 +19,6 @@ import random
 from mimesis import Person
 from mimesis.enums import Gender, Locale
 from core.config import logger
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
-
 
 MONTHS: tuple = (
     "Января",
@@ -125,10 +122,11 @@ class CreateVkBotsService(CreateBotsService):
             None
         """
 
-        # options = uc.ChromeOptions()
-        # options.add_argument("--headless")
+        options = webdriver.ChromeOptions()
+        options.add_argument("--headless")
+        options.add_argument('--disable-dev-shm-usage')
 
-        self.driver = webdriver.Remote("http://selenium:4444/wd/hub", DesiredCapabilities.CHROME)
+        self.driver = webdriver.Remote("http://selenium_bots_creation:4444/wd/hub", options=options)
         self.driver.implicitly_wait(5)
 
     def _input_generated_data(self, name: str, surname: str, sex: int) -> None:
