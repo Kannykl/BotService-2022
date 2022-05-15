@@ -158,7 +158,8 @@ class VKBoostService:
         browser.get(profile)
 
         try:
-            browser.find_elements(By.CLASS_NAME, VKBoostService.SUBSCRIBE_BTN)[1].click()
+            sub_btn = browser.find_elements(By.CLASS_NAME, VKBoostService.SUBSCRIBE_BTN)
+            sub_btn[1].click()
 
         except NoSuchElementException:
             logger.info(f"This {profile} already like by this bot.")
