@@ -36,16 +36,16 @@ services:
       - proxynet
 
   selenium_bots_creation:
-    image: selenium/standalone-chrome:101.0
+    image: selenium/standalone-chrome
     ports:
-      - "4445:4444"
+      - 4445:4444
     networks:
       - proxynet
 
   selenium_boost:
-    image: selenium/standalone-chrome:101.0
+    image: selenium/standalone-chrome
     ports:
-      - "4444:4444"
+      - 4444:4444
     networks:
       - proxynet
 

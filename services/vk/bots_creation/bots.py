@@ -291,6 +291,8 @@ class CreateVkBotsService(CreateBotsService):
             driver.close()
             return -1
 
+            return -1
+
     def _set_password(self):
         """Set password for new account."""
         driver = self.driver
@@ -312,9 +314,11 @@ class CreateVkBotsService(CreateBotsService):
             ).until(EC.presence_of_element_located((By.TAG_NAME, "button")))
             btn = driver.find_elements(By.TAG_NAME, "button")[1]
             btn.click()
+
         except TimeoutException or StaleElementReferenceException:
             logger.error("Continue button is not located in this page")
             driver.close()
+
             return None
 
         code = self._get_sms_or_call()
