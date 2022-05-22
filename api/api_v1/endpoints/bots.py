@@ -51,10 +51,12 @@ async def boost_stat(
 ):
     """Boost sub to a profile or add like to the post"""
     db_client = request.app.db_client
+    one_bot: int = 1
+    user_email: str = "user_stub@mail.ru"
 
     created_tasks = chord(
         (
-            boost_stat_task.signature((boost_info.link, 1, boost_info.boost_type))
+            boost_stat_task.signature((boost_info.link, one_bot, boost_info.boost_type))
             for _ in range(boost_info.count)
         ),
         free_bot.s(),
@@ -62,7 +64,7 @@ async def boost_stat(
 
     task = {
         "_id": created_tasks.id,
-        "owner": "user_stub@mail.ru",
+        "owner": user_email,
         "status": AsyncResult(created_tasks.id).status,
         "count": boost_info.count,
         "boost_type": boost_info.boost_type,

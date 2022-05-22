@@ -18,7 +18,7 @@ class Status:
     FAILURE: str = "FAILURE"
 
 
-async def create_bot(bot):
+async def create_bot(bot: list) -> None:
     """Send async request to db to create a bot."""
     await AsyncClient(base_url=settings.BASE_DB_URL).post(f"create_bot/", json={
         "bot": {
@@ -27,13 +27,13 @@ async def create_bot(bot):
         }})
 
 
-async def async_update_task_status(task_id: str, status: str):
+async def async_update_task_status(task_id: str, status: str) -> None:
     await AsyncClient(base_url=settings.BASE_DB_URL).patch(
         f"update_task/?task_id={task_id}&task_status={status}")
 
 
 @app.task(name="create_bots")
-def create_bots_task(count: int = 1):
+def create_bots_task(count: int = 1) -> list:
     """Start creating bots."""
     phone_stock = OnlineSimPhoneStockService()
     bot_service = CreateVkBotsService(phone_stock)
@@ -44,7 +44,7 @@ def create_bots_task(count: int = 1):
 
 
 @app.task()
-def create_bots_listener(result: str):
+def create_bots_listener(result: str) -> None:
     """After creating all bots send request to db to create bots."""
 
     for bot in result:
@@ -53,7 +53,7 @@ def create_bots_listener(result: str):
 
 
 @app.task(name="update_task_status")
-def update_task_status(task_id: str):
+def update_task_status(task_id: str) -> None:
     """Update group task status."""
     result = AsyncResult(task_id)
 
