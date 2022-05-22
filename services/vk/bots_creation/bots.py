@@ -94,7 +94,7 @@ class CreateVkBotsService(CreateBotsService):
         driver.get(CreateVkBotsService.MAIN_PAGE)
 
         try:
-            name, surname, sex = data[0], data[1], data[2]
+            name, surname, sex = data
 
             phone = self.phone_stock.buy_phone(CreateVkBotsService.SOCIAL_NET)
             self._phone_input(phone)
@@ -289,8 +289,6 @@ class CreateVkBotsService(CreateBotsService):
         else:
             logger.error(f"{phone} doesnt receive a code")
             driver.close()
-            return -1
-
             return -1
 
     def _set_password(self):
