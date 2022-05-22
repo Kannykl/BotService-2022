@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str = "redis://localhost:6379"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379"
     BASE_DB_URL: str = "http://web:8000/db"
+    BASE_AUTH_URL: str = "http://web:8000/auth"
 
     class Config:
         case_sensitive = True
