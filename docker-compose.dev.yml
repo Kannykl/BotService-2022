@@ -2,12 +2,11 @@ version: '3.8'
 
 services:
 
-  bot_service:
-    build: .
+  bots:
+    image: ${CONTAINER_IMAGE_LATEST}
+    container_name: bot-service
     ports:
       - "8001:8000"
-    volumes:
-      - ./:/usr/stat_inc/
     environment:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
@@ -17,20 +16,20 @@ services:
       - proxynet
 
   worker:
-    build: .
-    command: celery -A core.celery.app worker -P threads --loglevel=info --logfile=celery.log
-    volumes:
-      - ./:/usr/stat_inc/
+    image: ${CONTAINER_IMAGE_LATEST}
+    container_name: worker
+    command: celery -A core.celery.app worker --loglevel=info
     environment:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
     depends_on:
-      - bot_service
+      - bots
       - redis
     networks:
       - proxynet
 
   redis:
+    container_name: redis
     image: redis:6-alpine
     networks:
       - proxynet

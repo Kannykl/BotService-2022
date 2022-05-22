@@ -1,0 +1,61 @@
+variables:
+  CONTAINER_IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+  CONTAINER_IMAGE_LATEST: $CI_REGISTRY_IMAGE:latest
+  DOCKER_TLS_CERTDIR: ""
+  DOCKER_DRIVER: overlay2
+
+
+stages:
+  - build
+  - cleanup
+  - deploy
+
+
+build_backend:
+  stage: build
+  image: docker:20.10.14
+  tags:
+     - gateway-runner
+  before_script:
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+  services:
+    - name: docker:19-dind
+      command: [ "--tls=false" ]
+  script:
+    - docker build -t $CONTAINER_IMAGE -t $CONTAINER_IMAGE_LATEST .
+    - docker push $CONTAINER_IMAGE
+    - docker push $CONTAINER_IMAGE_LATEST
+  rules:
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev"
+
+cleanup:
+  stage: cleanup
+  tags:
+    - gateway-runner
+  image:
+    name: docker/compose:1.29.2
+    entrypoint: [ "" ]
+  services:
+    - name: docker:19-dind
+      command: [ "--tls=false" ]
+  script:
+    - docker-compose down --remove-orphans
+  rules:
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev"
+
+deploy:
+  stage: deploy
+  tags:
+    - gateway-runner
+  image:
+    name: docker/compose:1.29.2
+    entrypoint: [""]
+  before_script:
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+  services:
+    - name: docker:19-dind
+      command: [ "--tls=false" ]
+  script:
+    - docker-compose -f docker-compose.dev.yml up -d
+  rules:
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev"
