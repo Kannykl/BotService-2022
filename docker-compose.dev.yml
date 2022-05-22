@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+
+  bots:
+    image: ${CONTAINER_IMAGE_LATEST}
+    container_name: bot-service
+    ports:
+      - "8001:8000"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - redis
+    networks:
+      - proxynet
+
+  worker:
+    image: ${CONTAINER_IMAGE_LATEST}
+    container_name: worker
+    command: celery -A core.celery.app worker --loglevel=info
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - bots
+      - redis
+    networks:
+      - proxynet
+
+  redis:
+    container_name: redis
+    image: redis:6-alpine
+    networks:
+      - proxynet
+
+  selenium_bots_creation:
+    image: selenium/standalone-chrome
+    ports:
+      - "4445:4444"
+    networks:
+      - proxynet
+
+  selenium_boost:
+    image: selenium/standalone-chrome
+    ports:
+      - "4444:4444"
+    networks:
+      - proxynet
+
+
+networks:
+  proxynet:
+    name: stat_inc_network
