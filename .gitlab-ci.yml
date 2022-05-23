@@ -39,7 +39,7 @@ cleanup:
     - name: docker:19-dind
       command: [ "--tls=false" ]
   script:
-    - docker-compose down --remove-orphans
+    - docker-compose down --remove-orphans || true
   rules:
     - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev"
 
