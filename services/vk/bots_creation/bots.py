@@ -1,5 +1,6 @@
 """Bots creation module"""
 from abc import ABC, abstractmethod
+from typing import NamedTuple
 
 from selenium.common.exceptions import (
     NoSuchElementException,
@@ -21,16 +22,18 @@ from mimesis import Person
 from mimesis.enums import Gender, Locale
 from core.config import logger
 
-MONTHS: tuple = (
-    "Января",
-    "Февраля",
-    "Марта",
-    "Апреля",
-    "Мая",
-    "Июня",
-)
-
 SEX: tuple = (0, 1)
+
+
+class PersonData(NamedTuple):
+    name: str
+    surname: str
+    sex: int
+
+
+class BotData(NamedTuple):
+    phone: str
+    password: str
 
 
 class CreateBotsService(ABC):
@@ -68,6 +71,7 @@ class CreateVkBotsService(CreateBotsService):
     PAGE: str = "page_name"
     SOCIAL_NET: str = "vk"
     SMS_BTN: str = "vkc__Link__primary"
+    CHANGE_PASSWORD_URL: str = "https://id.vk.com/account/#/password-change"
 
     PAGE_LOAD_STRATEGY: str = "eager"
 
@@ -81,7 +85,7 @@ class CreateVkBotsService(CreateBotsService):
         self.phone_stock = phone_stock
         self._setup_driver()
 
-    def register_bot(self, data: tuple) -> tuple[str, str] | int:
+    def register_bot(self, data: tuple) -> BotData:
         """Register bot in a social net.
 
         Args:
@@ -114,7 +118,7 @@ class CreateVkBotsService(CreateBotsService):
 
             password = self._set_password()
 
-            return phone, password
+            return BotData(phone=phone, password=password)
 
         except (NoSuchElementException, TimeoutException, IndexError) as e:
             logger.error(f"Error occurred while creating a bot:{str(e)}")
@@ -297,7 +301,7 @@ class CreateVkBotsService(CreateBotsService):
     def _set_password(self) -> str:
         """Set password for new account."""
         driver = self.driver
-        driver.get("https://id.vk.com/account/#/password-change")
+        driver.get(CreateVkBotsService.CHANGE_PASSWORD_URL)
 
         call_me = driver.find_element(By.CLASS_NAME, CreateVkBotsService.BTN)
         webdriver.ActionChains(driver).move_to_element(call_me).click().move_by_offset(
@@ -335,7 +339,7 @@ class CreateVkBotsService(CreateBotsService):
         return passwrd
 
     @staticmethod
-    def generate_data_for_bot() -> tuple[str, str, int]:
+    def generate_data_for_bot() -> PersonData:
         """Generate data.
 
         Returns:
@@ -356,4 +360,4 @@ class CreateVkBotsService(CreateBotsService):
             name = man.first_name(gender=Gender.FEMALE)
             surname = man.last_name(gender=Gender.FEMALE)
 
-        return name, surname, sex
+        return PersonData(name=name, surname=surname, sex=sex)
