@@ -56,9 +56,15 @@ def create_bots_listener(result: str) -> None:
 def update_task_status(task_id: str) -> None:
     """Update group task status."""
     result = AsyncResult(task_id)
+    count = 0
 
     while not result.ready():
         time.sleep(45)
+        count += 1
+
+        if count == 4:
+            async_to_sync(async_update_task_status)(result.id, Status.FAILURE)
+            return
 
     if result.successful():
         async_to_sync(async_update_task_status)(result.id, Status.SUCCESS)
