@@ -1,7 +1,6 @@
 """Celery tasks module"""
 
-import time
-from celery.result import AsyncResult
+from celery.result import GroupResult, ResultSet
 from httpx import AsyncClient
 from asgiref.sync import async_to_sync
 from core.celery import app
@@ -9,11 +8,10 @@ from services.vk.vk_service import VKService
 from services.vk.bots_creation.phone_stock import OnlineSimPhoneStockService
 from services.vk.bots_creation.bots import CreateVkBotsService
 from core.config import logger, settings
-from dataclasses import dataclass
+from enum import Enum
 
 
-@dataclass
-class Status:
+class Status(Enum, str):
     SUCCESS: str = "SUCCESS"
     FAILURE: str = "FAILURE"
 
@@ -52,21 +50,15 @@ def create_bots_listener(result: str) -> None:
         logger.info(f"{bot[0]} is added in DB!")
 
 
-@app.task(name="update_task_status")
-def update_task_status(task_id: str) -> None:
+@app.task(bind=True, name="update_task_status", default_retry_delay=5, max_retries=10)
+def update_task_status(self, task_id: str) -> None:
     """Update group task status."""
-    result = AsyncResult(task_id)
-    count = 0
+    result = GroupResult.restore(task_id)
+    result_set = ResultSet(result.results)
 
-    while not result.ready():
-        time.sleep(45)
-        count += 1
-
-        if count == 4:
-            async_to_sync(async_update_task_status)(result.id, Status.FAILURE)
-            return
-
-    if result.successful():
-        async_to_sync(async_update_task_status)(result.id, Status.SUCCESS)
-    elif result.failed():
-        async_to_sync(async_update_task_status)(result.id, Status.FAILURE)
+    if result_set.successful():
+        async_to_sync(async_update_task_status)(task_id, Status.SUCCESS)
+    elif result_set.failed():
+        async_to_sync(async_update_task_status)(task_id, Status.FAILURE)
+    else:
+        raise self.retry()

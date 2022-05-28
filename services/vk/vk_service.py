@@ -15,7 +15,7 @@ class SocialNetService(ABC):
 
     @abstractmethod
     def boost_statistics(
-        self, link: str, wished_count: int, boost_type: str, data: list
+        self, link: str, boost_type: str, bot: dict
     ):
         """Boost stat in social net"""
 
@@ -52,42 +52,28 @@ class VKService(SocialNetService):
 
         return bots_info
 
-    def boost_statistics(
-        self, link: str, wished_count: int, boost_type: str, data: list
-    ) -> None:
+    def boost_statistics(self, link: str, boost_type: str, bot: dict) -> None:
         """Boost stat in vk.
 
         Args:
             link(str): Link for profile/post.
-            wished_count(int): Count of like/subs.
             boost_type(str): boost type like/sub.
-            data(str): bots_data.
+            bot(dict): bots_data.
 
         Returns:
             None
         """
 
-        count_of_bots = len(data)
+        if boost_type == VKService.BOOST_TYPE1:
+            try:
+                VKBoostService(bot["username"], bot["password"]).like_post(link)
 
-        if count_of_bots < int(wished_count):
-            wished_count = count_of_bots
+            except StopBoostException:
+                return
 
-        for bot in data:
+        elif boost_type == VKService.BOOST_TYPE2:
+            try:
+                VKBoostService(bot["username"], bot["password"]).subscribe(link)
 
-            if wished_count != 0:
-
-                if boost_type == VKService.BOOST_TYPE1:
-                    try:
-                        VKBoostService(bot["username"], bot["password"]).like_post(link)
-
-                    except StopBoostException:
-                        continue
-
-                elif boost_type == VKService.BOOST_TYPE2:
-                    try:
-                        VKBoostService(bot["username"], bot["password"]).subscribe(link)
-
-                    except StopBoostException:
-                        continue
-
-            wished_count -= 1
+            except StopBoostException:
+                return

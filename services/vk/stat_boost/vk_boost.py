@@ -31,7 +31,9 @@ class VKBoostService:
     PAGE_LOAD_STRATEGY: str = "eager"
     TIME_OUT: int = 5
 
-    def __init__(self, username: str, password: str) -> None:
+    def __init__(
+        self, username: str, password: str, inspect: bool = False
+    ) -> None:
         """Login to bot account.
 
         Args:
@@ -47,8 +49,8 @@ class VKBoostService:
         browser.get(VKBoostService.MAIN_PAGE)
 
         try:
-            self._input_passwrd()
             self._input_login()
+            self._input_passwrd()
 
         except (IndexError, NoSuchElementException) as e:
             logger.error(f"Error during input password or login: {e}")
@@ -56,6 +58,9 @@ class VKBoostService:
             raise StopBoostException
 
         self._remove_email_check_box()
+
+        if inspect:
+            self.driver.quit()
 
     def _input_login(self) -> None:
         """Input login in a form.
@@ -66,9 +71,13 @@ class VKBoostService:
 
         driver = self.driver
         try:
-            login_btn = driver.find_elements(By.CLASS_NAME, VKBoostService.LOGIN_BTN)[0]
+            login_btn = driver.find_elements(
+                By.CLASS_NAME, VKBoostService.LOGIN_BTN
+            )[0]
             login_btn.click()
-            login_input = driver.find_element(By.CLASS_NAME, VKBoostService.LOGIN_INPUT)
+            login_input = driver.find_element(
+                By.CLASS_NAME, VKBoostService.LOGIN_INPUT
+            )
             login_input.send_keys(self.username + Keys.ENTER)
 
         except (IndexError, NoSuchElementException) as e:
@@ -83,16 +92,18 @@ class VKBoostService:
             None
         """
         try:
-            self.driver.find_elements(By.CLASS_NAME, VKBoostService.SWITCH_TO_PASSWORD)[
-                0
-            ].click()
+            self.driver.find_elements(
+                By.CLASS_NAME, VKBoostService.SWITCH_TO_PASSWORD
+            )[0].click()
 
             password_input = self.driver.find_elements(
                 By.CLASS_NAME, VKBoostService.PASSWORD_INPUT
             )[1]
 
         except IndexError as e:
-            logger.error(f"Error during input passwrd, didnt find an element: {e}")
+            logger.error(
+                f"Error during input passwrd, didnt find an element: {e}"
+            )
             self.driver.quit()
             raise StopBoostException
 
@@ -128,10 +139,12 @@ class VKBoostService:
                 )
             )
 
-            input_email = browser.find_element(By.ID, VKBoostService.EMAIL_INPUT)
+            input_email = browser.find_element(
+                By.ID, VKBoostService.EMAIL_INPUT
+            )
             input_email.send_keys(Keys.ESCAPE)
 
-        except TimeoutException:
+        except (TimeoutException, NoSuchElementException):
             logger.info("No email checkbox was found.")
 
     def like_post(self, post: str) -> None:
@@ -148,13 +161,19 @@ class VKBoostService:
 
         try:
             like_btn = WebDriverWait(browser, VKBoostService.TIME_OUT).until(
-                EC.presence_of_element_located((By.XPATH, VKBoostService.LIKE_BTN))
+                EC.presence_of_element_located(
+                    (By.XPATH, VKBoostService.LIKE_BTN)
+                )
             )
 
-            ActionChains(browser).move_to_element(like_btn).click(like_btn).perform()
+            ActionChains(browser).move_to_element(like_btn).click(
+                like_btn
+            ).perform()
 
             WebDriverWait(browser, VKBoostService.TIME_OUT).until(
-                EC.presence_of_element_located((By.XPATH, VKBoostService.LIKED_POST))
+                EC.presence_of_element_located(
+                    (By.XPATH, VKBoostService.LIKED_POST)
+                )
             )
 
         except TimeoutException as e:
@@ -177,7 +196,9 @@ class VKBoostService:
         browser.get(profile)
 
         try:
-            sub_btn = browser.find_elements(By.CLASS_NAME, VKBoostService.SUBSCRIBE_BTN)
+            sub_btn = browser.find_elements(
+                By.CLASS_NAME, VKBoostService.SUBSCRIBE_BTN
+            )
             sub_btn[1].click()
 
         except IndexError:
@@ -187,7 +208,9 @@ class VKBoostService:
 
         try:
             WebDriverWait(browser, VKBoostService.TIME_OUT).until(
-                EC.presence_of_element_located((By.XPATH, VKBoostService.PAGE_ACTIONS))
+                EC.presence_of_element_located(
+                    (By.XPATH, VKBoostService.PAGE_ACTIONS)
+                )
             )
 
         except TimeoutException:
