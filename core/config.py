@@ -11,18 +11,20 @@ class Settings(BaseSettings):
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379"
     BASE_DB_URL: str = "http://web:8000/db"
     BASE_AUTH_URL: str = "http://web:8000/auth"
+    DEBUG: bool = True
 
     class Config:
         case_sensitive = True
 
 
+settings = Settings()
+
 logger.add(
     "bot_service_logs.log",
     format="{time:YYYY-MM-DD at HH:mm:ss} {level} {message}",
-    level="DEBUG",
+    level="DEBUG" if settings.DEBUG else "INFO",
     rotation="10 MB",
     compression="zip",
     serialize=True,
 )
 
-settings = Settings()
