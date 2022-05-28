@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod
 from services.vk.bots_creation.bots import CreateVkBotsService
+from services.vk.exceptions import StopBoostException, StopCreatingBotsException
 from services.vk.stat_boost.vk_boost import VKBoostService
 
 
@@ -42,9 +43,12 @@ class VKService(SocialNetService):
         for _ in range(int(count)):
             data = self.bot_service.generate_data_for_bot()
 
-            phone, password = self.bot_service.register_bot(data)
+            try:
+                phone, password = self.bot_service.register_bot(data)
+                bots_info.append((phone, password))
 
-            bots_info.append((phone, password))
+            except StopCreatingBotsException:
+                continue
 
         return bots_info
 
@@ -73,10 +77,17 @@ class VKService(SocialNetService):
             if wished_count != 0:
 
                 if boost_type == VKService.BOOST_TYPE1:
+                    try:
+                        VKBoostService(bot["username"], bot["password"]).like_post(link)
 
-                    VKBoostService(bot["username"], bot["password"]).like_post(link)
+                    except StopBoostException:
+                        continue
 
                 elif boost_type == VKService.BOOST_TYPE2:
-                    VKBoostService(bot["username"], bot["password"]).subscribe(link)
+                    try:
+                        VKBoostService(bot["username"], bot["password"]).subscribe(link)
+
+                    except StopBoostException:
+                        continue
 
             wished_count -= 1

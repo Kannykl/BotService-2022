@@ -1,9 +1,11 @@
 """Endpoints for work with bots"""
 from celery import group, chord
 from celery.result import AsyncResult
-from fastapi import APIRouter, status, Request, Body
+from fastapi import APIRouter, Request, Body, HTTPException
 from schemas.task import Task, BoostTask, BoostTaskIn
 from services.vk.stat_boost.tasks import boost_stat_task, free_bot
+from starlette.status import HTTP_200_OK
+from core.config import logger
 
 from services.vk.bots_creation.tasks import (
     create_bots_task,
@@ -15,7 +17,7 @@ router = APIRouter()
 
 
 @router.post(
-    "/create_bots/{count}", response_model=Task, status_code=status.HTTP_200_OK
+    "/create_bots/{count}", response_model=Task, status_code=HTTP_200_OK
 )
 async def run_create_bots_task(count: int, request: Request):
     """Create bots in social net VK."""
@@ -35,6 +37,10 @@ async def run_create_bots_task(count: int, request: Request):
 
     response = await request.app.db_client.post("create_task/bot/", json={"task": task})
 
+    if response.status_code != HTTP_200_OK:
+        logger.error("Create task for creating bots failed")
+        raise HTTPException(status_code=response.status_code, detail="Create task for creating bots failed")
+
     update_task_status.delay(created_tasks.id)
 
     return Task.parse_obj(response.json())
@@ -43,7 +49,7 @@ async def run_create_bots_task(count: int, request: Request):
 @router.post(
     "/boost_stat/",
     response_model=BoostTask,
-    status_code=status.HTTP_200_OK,
+    status_code=HTTP_200_OK,
 )
 async def boost_stat(
     request: Request,
@@ -72,6 +78,11 @@ async def boost_stat(
     }
 
     response = await db_client.post("create_task/boost/", json={"task": task})
+
+    if response.status_code != HTTP_200_OK:
+        logger.error("Create task for boost stat failed")
+        raise HTTPException(status_code=response.status_code, detail="Create task for boost stat failed")
+
     update_task_status.delay(created_tasks.id)
 
     return BoostTask.parse_obj(response.json())

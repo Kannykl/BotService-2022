@@ -5,8 +5,9 @@ from abc import ABC, abstractmethod
 import time
 
 import requests
-from core.config import settings
 from onlinesimru import GetNumbers
+from services.vk.exceptions import PhoneStockUnavailableException
+from core.config import settings
 
 
 class PhoneStockService(ABC):
@@ -37,12 +38,17 @@ class OnlineSimPhoneStockService(PhoneStockService):
         Returns:
             data(list): Info about phone.
         """
-
-        data = json.loads(
-            requests.get(
-                f"{OnlineSimPhoneStockService.BASE_API_URL}{settings.PHONE_STOCK_API_KEY}&tzid={self.tzid}"
-            ).content
+        response = requests.get(
+            f"{OnlineSimPhoneStockService.BASE_API_URL}"
+            f"{settings.PHONE_STOCK_API_KEY}&tzid={self.tzid}"
         )
+
+        if response.status_code != 200:
+            raise PhoneStockUnavailableException(
+                f"Phone stock status code {response.status_code}"
+            )
+
+        data = json.loads(response.content)
 
         return data
 
@@ -72,8 +78,11 @@ class OnlineSimPhoneStockService(PhoneStockService):
         Returns:
             code(int): code from sms/call or None.
         """
+        try:
+            data = self._get_phone_data()
 
-        data = self._get_phone_data()
+        except PhoneStockUnavailableException:
+            return None
 
         count = 0
 

@@ -5,10 +5,10 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium import webdriver
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common import exceptions
 
 
 from core.config import logger
+from services.vk.exceptions import StopBoostException
 
 
 class VKBoostService:
@@ -46,8 +46,15 @@ class VKBoostService:
         browser = self.driver
         browser.get(VKBoostService.MAIN_PAGE)
 
-        self._input_login()
-        self._input_passwrd()
+        try:
+            self._input_passwrd()
+            self._input_login()
+
+        except (IndexError, NoSuchElementException) as e:
+            logger.error(f"Error during input password or login: {e}")
+            self.driver.quit()
+            raise StopBoostException
+
         self._remove_email_check_box()
 
     def _input_login(self) -> None:
@@ -58,10 +65,16 @@ class VKBoostService:
         """
 
         driver = self.driver
-        login_btn = driver.find_elements(By.CLASS_NAME, VKBoostService.LOGIN_BTN)[0]
-        login_btn.click()
-        login_input = driver.find_element(By.CLASS_NAME, VKBoostService.LOGIN_INPUT)
-        login_input.send_keys(self.username + Keys.ENTER)
+        try:
+            login_btn = driver.find_elements(By.CLASS_NAME, VKBoostService.LOGIN_BTN)[0]
+            login_btn.click()
+            login_input = driver.find_element(By.CLASS_NAME, VKBoostService.LOGIN_INPUT)
+            login_input.send_keys(self.username + Keys.ENTER)
+
+        except (IndexError, NoSuchElementException) as e:
+            logger.error(f"Error during input login: {e}")
+            self.driver.quit()
+            raise StopBoostException
 
     def _input_passwrd(self) -> None:
         """Input password in a form.
@@ -78,10 +91,10 @@ class VKBoostService:
                 By.CLASS_NAME, VKBoostService.PASSWORD_INPUT
             )[1]
 
-        except NoSuchElementException:
-            logger.error("Error during input passwrd: didnt find an element")
+        except IndexError as e:
+            logger.error(f"Error during input passwrd, didnt find an element: {e}")
             self.driver.quit()
-            return
+            raise StopBoostException
 
         password_input.send_keys(self.password + Keys.ENTER)
 
@@ -118,7 +131,7 @@ class VKBoostService:
             input_email = browser.find_element(By.ID, VKBoostService.EMAIL_INPUT)
             input_email.send_keys(Keys.ESCAPE)
 
-        except exceptions.TimeoutException:
+        except TimeoutException:
             logger.info("No email checkbox was found.")
 
     def like_post(self, post: str) -> None:
@@ -133,15 +146,21 @@ class VKBoostService:
         browser = self.driver
         browser.get(post)
 
-        like_btn = WebDriverWait(browser, VKBoostService.TIME_OUT).until(
-            EC.presence_of_element_located((By.XPATH, VKBoostService.LIKE_BTN))
-        )
+        try:
+            like_btn = WebDriverWait(browser, VKBoostService.TIME_OUT).until(
+                EC.presence_of_element_located((By.XPATH, VKBoostService.LIKE_BTN))
+            )
 
-        ActionChains(browser).move_to_element(like_btn).click(like_btn).perform()
+            ActionChains(browser).move_to_element(like_btn).click(like_btn).perform()
 
-        WebDriverWait(browser, VKBoostService.TIME_OUT).until(
-            EC.presence_of_element_located((By.XPATH, VKBoostService.LIKED_POST))
-        )
+            WebDriverWait(browser, VKBoostService.TIME_OUT).until(
+                EC.presence_of_element_located((By.XPATH, VKBoostService.LIKED_POST))
+            )
+
+        except TimeoutException as e:
+            logger.error(f"Error during like post: {e}")
+            self.driver.quit()
+            raise StopBoostException
 
         self.driver.close()
 
@@ -161,8 +180,10 @@ class VKBoostService:
             sub_btn = browser.find_elements(By.CLASS_NAME, VKBoostService.SUBSCRIBE_BTN)
             sub_btn[1].click()
 
-        except NoSuchElementException:
+        except IndexError:
             logger.info(f"This {profile} already like by this bot.")
+            self.driver.quit()
+            raise StopBoostException
 
         try:
             WebDriverWait(browser, VKBoostService.TIME_OUT).until(
