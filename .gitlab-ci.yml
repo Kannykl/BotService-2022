@@ -18,9 +18,6 @@ build_backend:
      - gateway-runner
   before_script:
     - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
-  services:
-    - name: docker:19-dind
-      command: [ "--tls=false" ]
   script:
     - docker build -t $CONTAINER_IMAGE -t $CONTAINER_IMAGE_LATEST .
     - docker push $CONTAINER_IMAGE
@@ -35,11 +32,8 @@ cleanup:
   image:
     name: docker/compose:1.29.2
     entrypoint: [ "" ]
-  services:
-    - name: docker:19-dind
-      command: [ "--tls=false" ]
   script:
-    - docker-compose down --remove-orphans
+    - docker-compose down --remove-orphans || true
   rules:
     - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev"
 
@@ -52,9 +46,6 @@ deploy:
     entrypoint: [""]
   before_script:
     - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
-  services:
-    - name: docker:19-dind
-      command: [ "--tls=false" ]
   script:
     - docker-compose -f docker-compose.dev.yml up -d
   rules:
