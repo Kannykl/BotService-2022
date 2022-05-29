@@ -1,26 +1,26 @@
 """Bots creation module"""
-from abc import ABC, abstractmethod
+import random
+from abc import ABC
+from abc import abstractmethod
 from typing import NamedTuple
 
-from selenium.common.exceptions import (
-    NoSuchElementException,
-    TimeoutException,
-    StaleElementReferenceException,
-)
+from mimesis import Person
+from mimesis.enums import Gender
+from mimesis.enums import Locale
+from passwordgenerator import pwgenerator
+from selenium import webdriver
+from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import StaleElementReferenceException
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver import Keys
-
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 
-from services.vk.exceptions import PhoneStockUnavailableException, StopCreatingBotsException
-from services.vk.bots_creation.phone_stock import PhoneStockService
-from selenium import webdriver
-from passwordgenerator import pwgenerator
-import random
-from mimesis import Person
-from mimesis.enums import Gender, Locale
 from core.config import logger
+from services.vk.bots_creation.phone_stock import PhoneStockService
+from services.vk.exceptions import PhoneStockUnavailableException
+from services.vk.exceptions import StopCreatingBotsException
 
 SEX: tuple = (0, 1)
 
@@ -103,7 +103,9 @@ class CreateVkBotsService(CreateBotsService):
             name, surname, sex = data
 
             try:
-                phone = self.phone_stock.buy_phone(CreateVkBotsService.SOCIAL_NET)
+                phone = self.phone_stock.buy_phone(
+                    CreateVkBotsService.SOCIAL_NET
+                )
 
             except PhoneStockUnavailableException:
                 logger.error("Phone stock is unavailable now.")
@@ -135,9 +137,11 @@ class CreateVkBotsService(CreateBotsService):
 
         options = webdriver.ChromeOptions()
         options.add_argument("--headless")
-        options.add_argument('--disable-dev-shm-usage')
+        options.add_argument("--disable-dev-shm-usage")
 
-        self.driver = webdriver.Remote("http://selenium_bots_creation:4444/wd/hub", options=options)
+        self.driver = webdriver.Remote(
+            "http://selenium_bots_creation:4444/wd/hub", options=options
+        )
         self.driver.implicitly_wait(5)
 
     def _input_generated_data(self, name: str, surname: str, sex: int) -> None:
@@ -164,7 +168,9 @@ class CreateVkBotsService(CreateBotsService):
         )[1]
         surname_input.send_keys(surname)
 
-        sex_buttons = driver.find_elements(By.CLASS_NAME, CreateVkBotsService.SEX_BTN)
+        sex_buttons = driver.find_elements(
+            By.CLASS_NAME, CreateVkBotsService.SEX_BTN
+        )
 
         if sex == 0:
             sex_buttons[0].click()
@@ -172,7 +178,9 @@ class CreateVkBotsService(CreateBotsService):
         else:
             sex_buttons[1].click()
 
-        driver.find_element(By.CLASS_NAME, CreateVkBotsService.CONTINUE_BTN).click()
+        driver.find_element(
+            By.CLASS_NAME, CreateVkBotsService.CONTINUE_BTN
+        ).click()
 
         birthday_selectors = driver.find_elements(
             By.CLASS_NAME, CreateVkBotsService.BIRTHDAY_SELECTOR
@@ -182,17 +190,19 @@ class CreateVkBotsService(CreateBotsService):
         month = birthday_selectors[1]
         year = birthday_selectors[2]
 
-        webdriver.ActionChains(driver).move_to_element(day).click().move_by_offset(
-            0, 100
-        ).click().perform()
-        webdriver.ActionChains(driver).move_to_element(month).click().move_by_offset(
-            0, 100
-        ).click().perform()
-        webdriver.ActionChains(driver).move_to_element(year).click().move_by_offset(
-            0, 100
-        ).click().perform()
+        webdriver.ActionChains(driver).move_to_element(
+            day
+        ).click().move_by_offset(0, 100).click().perform()
+        webdriver.ActionChains(driver).move_to_element(
+            month
+        ).click().move_by_offset(0, 100).click().perform()
+        webdriver.ActionChains(driver).move_to_element(
+            year
+        ).click().move_by_offset(0, 100).click().perform()
 
-        driver.find_element(By.CLASS_NAME, CreateVkBotsService.CONTINUE_BTN).click()
+        driver.find_element(
+            By.CLASS_NAME, CreateVkBotsService.CONTINUE_BTN
+        ).click()
 
         try:
             WebDriverWait(driver, CreateVkBotsService.TIME_OUT).until(
@@ -215,12 +225,14 @@ class CreateVkBotsService(CreateBotsService):
 
         driver = self.driver
 
-        registrate_button = driver.find_elements(By.CLASS_NAME,
-                                                 CreateVkBotsService.REGISTRATE_BTN
-                                                 )[1]
+        registrate_button = driver.find_elements(
+            By.CLASS_NAME, CreateVkBotsService.REGISTRATE_BTN
+        )[1]
         registrate_button.click()
 
-        phone_input = WebDriverWait(driver, CreateVkBotsService.TIME_OUT).until(
+        phone_input = WebDriverWait(
+            driver, CreateVkBotsService.TIME_OUT
+        ).until(
             EC.presence_of_element_located(
                 (By.CLASS_NAME, CreateVkBotsService.PHONE_INPUT)
             )
@@ -246,7 +258,9 @@ class CreateVkBotsService(CreateBotsService):
             if count - 1 == CreateVkBotsService.SMS_MAX_RESEND_TIME:
                 return None
 
-            sms_btn = WebDriverWait(driver, CreateVkBotsService.TIME_OUT).until(
+            sms_btn = WebDriverWait(
+                driver, CreateVkBotsService.TIME_OUT
+            ).until(
                 EC.presence_of_all_elements_located(
                     (By.CLASS_NAME, CreateVkBotsService.SMS_BTN)
                 )
@@ -257,7 +271,7 @@ class CreateVkBotsService(CreateBotsService):
 
         return code
 
-    def _input_code(self, code: str, phone: str) -> None:
+    def _input_code(self, code: str | None, phone: str) -> None:
         """Input code in a form.
 
         Args:
@@ -271,7 +285,9 @@ class CreateVkBotsService(CreateBotsService):
         driver = self.driver
 
         if code:
-            code_input = WebDriverWait(driver, CreateVkBotsService.TIME_OUT).until(
+            code_input = WebDriverWait(
+                driver, CreateVkBotsService.TIME_OUT
+            ).until(
                 EC.presence_of_element_located(
                     (By.CLASS_NAME, CreateVkBotsService.CODE_INPUT)
                 )
@@ -304,9 +320,9 @@ class CreateVkBotsService(CreateBotsService):
         driver.get(CreateVkBotsService.CHANGE_PASSWORD_URL)
 
         call_me = driver.find_element(By.CLASS_NAME, CreateVkBotsService.BTN)
-        webdriver.ActionChains(driver).move_to_element(call_me).click().move_by_offset(
-            0, 25
-        ).click().perform()
+        webdriver.ActionChains(driver).move_to_element(
+            call_me
+        ).click().move_by_offset(0, 25).click().perform()
 
         WebDriverWait(
             driver,

@@ -1,33 +1,35 @@
 """Celery tasks module"""
-
-from celery.result import GroupResult, ResultSet
-from httpx import AsyncClient
-from asgiref.sync import async_to_sync
-from core.celery import app
-from services.vk.vk_service import VKService
-from services.vk.bots_creation.phone_stock import OnlineSimPhoneStockService
-from services.vk.bots_creation.bots import CreateVkBotsService
-from core.config import logger, settings
 from enum import Enum
 
+from asgiref.sync import async_to_sync
+from celery.result import GroupResult
+from celery.result import ResultSet
+from httpx import AsyncClient
 
-class Status(Enum, str):
+from core.celery import app
+from core.config import logger
+from core.config import settings
+from services.vk.bots_creation.bots import CreateVkBotsService
+from services.vk.bots_creation.phone_stock import OnlineSimPhoneStockService
+from services.vk.vk_service import VKService
+
+
+class Status(str, Enum):
     SUCCESS: str = "SUCCESS"
     FAILURE: str = "FAILURE"
 
 
 async def create_bot(bot: list) -> None:
     """Send async request to db to create a bot."""
-    await AsyncClient(base_url=settings.BASE_DB_URL).post(f"create_bot/", json={
-        "bot": {
-            "username": bot[0],
-            "password": bot[1]
-        }})
+    await AsyncClient(base_url=settings.BASE_DB_URL).post(
+        "create_bot/", json={"bot": {"username": bot[0], "password": bot[1]}}
+    )
 
 
 async def async_update_task_status(task_id: str, status: str) -> None:
     await AsyncClient(base_url=settings.BASE_DB_URL).patch(
-        f"update_task/?task_id={task_id}&task_status={status}")
+        f"update_task/?task_id={task_id}&task_status={status}"
+    )
 
 
 @app.task(name="create_bots")
@@ -50,7 +52,9 @@ def create_bots_listener(result: str) -> None:
         logger.info(f"{bot[0]} is added in DB!")
 
 
-@app.task(bind=True, name="update_task_status", default_retry_delay=5, max_retries=10)
+@app.task(
+    bind=True, name="update_task_status", default_retry_delay=5, max_retries=10
+)
 def update_task_status(self, task_id: str) -> None:
     """Update group task status."""
     result = GroupResult.restore(task_id)
