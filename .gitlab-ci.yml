@@ -22,11 +22,9 @@ traefik:
     - docker-compose -f docker-compose.traefik.yml down
     - docker-compose -f docker-compose.traefik.yml up -d
   only:
-    - merge_requests
-    refs:
-      - dev
     variables:
-      - $CI_COMMIT_MESSAGE =~ /traefik config/
+        - $CI_COMMIT_MESSAGE =~ /traefik config/
+        - $CI_MERGE_REQUEST_TARGET_BRANCH_NAME =~ /dev/
 
 
 build_backend:
