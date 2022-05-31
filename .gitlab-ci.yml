@@ -21,6 +21,7 @@ traefik:
   script:
     - docker-compose -f docker-compose.traefik.yml down
     - docker-compose -f docker-compose.traefik.yml up -d
+    - echo $CI_COMMIT_MESSAGE
   only:
     refs:
       - merge_requests
