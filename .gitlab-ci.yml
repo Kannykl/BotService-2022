@@ -15,14 +15,18 @@ traefik:
   stage: traefik
   tags:
     - gateway-runner
-    image:
-      name: docker/compose:1.29.2
-      entrypoint: [ "" ]
+  image:
+    name: docker/compose:1.29.2
+    entrypoint: [ "" ]
   script:
     - docker-compose -f docker-compose.traefik.yml down
     - docker-compose -f docker-compose.traefik.yml up -d
-  rules:
-    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" && $CI_COMMIT_MESSAGE =~ /traefik config/
+  only:
+    - merge_requests
+    refs:
+      - dev
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /traefik config/
 
 
 build_backend:
