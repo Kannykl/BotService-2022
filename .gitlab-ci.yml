@@ -26,7 +26,7 @@ traefik:
       - merge_requests
     variables:
         - $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev"
-        - $CI_COMMIT_MESSAGE =~ traefik config
+        - $CI_COMMIT_MESSAGE == "traefik config"
 
 
 build_backend:
