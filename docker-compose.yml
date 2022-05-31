@@ -4,8 +4,6 @@ services:
 
   bot_service:
     build: .
-    ports:
-      - "8001:8000"
     volumes:
       - ./:/usr/stat_inc/
     environment:
@@ -15,6 +13,12 @@ services:
       - redis
     networks:
       - proxynet
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.bot_service.loadbalancer.server.port=8000
+      - traefik.http.routers.bot_service.entrypoints=http
+      - traefik.http.routers.bot_service.rule=PathPrefix("/api/bots")
+      - traefik.docker.network=stat_inc_network
 
   worker:
     build: .
@@ -37,15 +41,11 @@ services:
 
   selenium_bots_creation:
     image: selenium/standalone-chrome:101.0
-    ports:
-      - "4445:4444"
     networks:
       - proxynet
 
   selenium_boost:
     image: selenium/standalone-chrome:101.0
-    ports:
-      - "4444:4444"
     networks:
       - proxynet
 
