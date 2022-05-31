@@ -1,0 +1,29 @@
+services:
+
+  traefik:
+    image: traefik:v2.3
+    ports:
+      - "80:80"
+    restart: always
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.traefik-dashboard-http.entrypoints=http
+      - traefik.docker.network=stat_inc_network
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command:
+      - --providers.docker
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.http.address=:80
+      - --accesslog
+      - --log
+      - --api
+    networks:
+      - stat_inc_network
+
+volumes:
+  traefik-public-certificates:
+
+networks:
+  stat_inc_network:
+    external: true
