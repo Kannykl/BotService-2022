@@ -2,6 +2,7 @@
 from enum import Enum
 
 from asgiref.sync import async_to_sync
+from celery.exceptions import MaxRetriesExceededError
 from celery.result import GroupResult
 from celery.result import ResultSet
 from httpx import AsyncClient
@@ -53,16 +54,20 @@ def create_bots_listener(result: str) -> None:
 
 
 @app.task(
-    bind=True, name="update_task_status", default_retry_delay=5, max_retries=10
+    bind=True, name="update_task_status", default_retry_delay=5, max_retries=50
 )
 def update_task_status(self, task_id: str) -> None:
     """Update group task status."""
-    result = GroupResult.restore(task_id)
-    result_set = ResultSet(result.results)
+    try:
+        result = GroupResult.restore(task_id)
+        result_set = ResultSet(result.results)
 
-    if result_set.successful():
-        async_to_sync(async_update_task_status)(task_id, Status.SUCCESS)
-    elif result_set.failed():
+        if result_set.successful():
+            async_to_sync(async_update_task_status)(task_id, Status.SUCCESS)
+        elif result_set.failed():
+            async_to_sync(async_update_task_status)(task_id, Status.FAILURE)
+        else:
+            raise self.retry()
+
+    except MaxRetriesExceededError:
         async_to_sync(async_update_task_status)(task_id, Status.FAILURE)
-    else:
-        raise self.retry()

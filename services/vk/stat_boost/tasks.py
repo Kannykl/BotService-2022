@@ -1,22 +1,23 @@
 """Boost stat tasks module"""
-
-from httpx import AsyncClient
 from asgiref.sync import async_to_sync
+from httpx import AsyncClient
+from starlette.status import HTTP_200_OK
+
 from core.celery import app
-from core.config import settings, logger
-from services.vk.exceptions import StopBoostException
-from services.vk.stat_boost.vk_boost import VKBoostService
-from services.vk.vk_service import VKService
+from core.config import logger
+from core.config import settings
 from services.vk.bots_creation.bots import CreateVkBotsService
 from services.vk.bots_creation.phone_stock import OnlineSimPhoneStockService
-from starlette.status import HTTP_200_OK
-from celery.exceptions import Ignore
+from services.vk.exceptions import StopBoostException
+from services.vk.exceptions import TaskFailed
+from services.vk.stat_boost.vk_boost import VKBoostService
+from services.vk.vk_service import VKService
 
 
 async def async_get_bot_for_work():
     """Async request to db to get free bot"""
-    bot = await AsyncClient(base_url=settings.BASE_DB_URL).patch(
-        f"get_bot_for_work/"
+    bot = await AsyncClient(base_url=settings.BASE_DB_URL).get(
+        "get_bot_for_work/"
     )
 
     return bot.json()
@@ -42,13 +43,15 @@ async def delete_bot(username: str):
 
 async def get_bots():
     """Async request to db to get bots"""
-    response = await AsyncClient(base_url=settings.BASE_DB_URL).get(f"/get_bots/")
+    response = await AsyncClient(base_url=settings.BASE_DB_URL).get(
+        "/get_bots/"
+    )
 
     return response
 
 
-@app.task(bind=True, name="boost_stat")
-def boost_stat_task(self, boost_link: str, boost_type: str):
+@app.task(name="boost_stat")
+def boost_stat_task(boost_link: str, boost_type: str):
     """Boost stat task"""
     phone_stock = OnlineSimPhoneStockService()
     bot_service = CreateVkBotsService(phone_stock)
@@ -58,29 +61,30 @@ def boost_stat_task(self, boost_link: str, boost_type: str):
 
     if bot:
         try:
-            vk_service.boost_statistics(
-                boost_link, boost_type, bot
-            )
-            self.update_state("SUCCESS")
-        except StopBoostException:
-            logger.error("Error during boost task")
-            self.update_state("FAILURE")
+            vk_service.boost_statistics(boost_link, boost_type, bot)
 
-        finally:
             response = async_to_sync(set_free)(bot)
 
             if response.status_code == HTTP_200_OK:
                 logger.info(f"Bot {bot['username']} is free")
-            raise Ignore()
+
+        except StopBoostException:
+            logger.error("Error during boost task")
+
+            response = async_to_sync(set_free)(bot)
+
+            if response.status_code == HTTP_200_OK:
+                logger.info(f"Bot {bot['username']} is free")
+
+            raise TaskFailed()
 
     else:
         logger.info("Bots are not available now")
-        self.update_state(task_id=self.request.id, state="FAILURE")
-        raise Ignore()
+        raise TaskFailed()
 
 
-@app.task(bind=True, name="inspect_bots")
-def inspect_bots_task(self):
+@app.task(name="inspect_bots")
+def inspect_bots_task():
     """Inspect bots accounts."""
     bot = async_to_sync(async_get_bot_for_work)()
 
@@ -93,7 +97,6 @@ def inspect_bots_task(self):
                 inspect=True,
             )
             logger.info(f"Bot {bot['username']} is valid")
-            self.update_state("SUCCESS")
 
         except StopBoostException:
             response = async_to_sync(delete_bot)(bot["username"])
@@ -107,11 +110,9 @@ def inspect_bots_task(self):
             if response.status_code == HTTP_200_OK:
                 logger.info(f"Bot {bot['username']} is free")
 
-            raise Ignore()
     else:
         logger.info("Bots are not available now")
-        self.update_state("FAILURE")
-        raise Ignore()
+        raise TaskFailed()
 
 
 @app.task(name="inspect_bots_at_midnight")

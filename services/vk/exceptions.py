@@ -14,3 +14,8 @@ class StopBoostException(Exception):
 class StopCreatingBotsException(Exception):
     """Exception if something goes wrong while creating bots"""
     pass
+
+
+class TaskFailed(Exception):
+    """Exception for set failed state for a task"""
+    pass
