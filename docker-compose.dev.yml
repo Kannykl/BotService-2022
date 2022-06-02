@@ -19,11 +19,19 @@ services:
       - traefik.http.routers.bot_service.entrypoints=http
       - traefik.http.routers.bot_service.rule=PathPrefix("/api/bots")
       - traefik.docker.network=stat_inc_network
+      - traefik.http.routers.bot_service-https.entrypoints=https
+      - traefik.http.routers.bot_service-https.rule=PathPrefix("/api/bots")
+      - traefik.http.routers.bot_service-https.tls=true
+      - traefik.http.routers.bot_service-https.tls.certresolver=le
+      - traefik.http.middlewares.https-redirect.redirectscheme.scheme=https
+      - traefik.http.middlewares.https-redirect.redirectscheme.permanent=true
+      - traefik.http.routers.bot_service.middlewares=https-redirect
+      - traefik.http.routers.bot_service-https.middlewares=admin-auth
 
   worker:
     image: ${CONTAINER_IMAGE_LATEST}
     container_name: worker
-    command: celery -A core.celery.app worker --loglevel=info
+    command: celery -A core.celery.app worker --loglevel=${LOG_LEVEL?Variable not set}
     environment:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
@@ -40,12 +48,12 @@ services:
       - proxynet
 
   selenium_bots_creation:
-    image: selenium/standalone-chrome
+    image: selenium/standalone-chrome:101.0
     networks:
       - proxynet
 
   selenium_boost:
-    image: selenium/standalone-chrome
+    image: selenium/standalone-chrome:101.0
     networks:
       - proxynet
 
