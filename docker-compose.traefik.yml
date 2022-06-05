@@ -10,9 +10,9 @@ services:
       - traefik.enable=true
       - traefik.http.routers.traefik-dashboard-http.entrypoints=http
       - traefik.http.services.traefik-dashboard.loadbalancer.server.port=8080
-      - traefik.http.routers.traefik-dashboard-http.rule=Host(`traefik.statinc.ru`)
+      - traefik.http.routers.traefik-dashboard-http.rule=Host("traefik.statinc.ru")
       - traefik.http.routers.traefik-dashboard-https.entrypoints=https
-      - traefik.http.routers.traefik-dashboard-https.rule=Host(`traefik.statinc.ru`)
+      - traefik.http.routers.traefik-dashboard-https.rule=Host("traefik.statinc.ru")
       - traefik.http.routers.traefik-dashboard-https.tls=true
       - traefik.docker.network=stat_inc_network
       - traefik.http.routers.traefik-dashboard-https.tls.certresolver=le
