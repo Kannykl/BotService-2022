@@ -2,6 +2,7 @@
 
 from pydantic import BaseModel, Field, EmailStr
 import uuid
+from typing import Literal
 
 
 class Task(BaseModel):
@@ -22,4 +23,4 @@ class BoostTaskIn(BaseModel):
     """Info for create boost task"""
     link: str
     count: int
-    boost_type: str
+    boost_type: Literal["like", "sub"]
