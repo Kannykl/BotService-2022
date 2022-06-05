@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     BASE_DB_URL: str = "http://web:8001/db"
     BASE_AUTH_URL: str = "http://web:8001/auth"
     DEBUG: bool = True
+    CIRCUIT_BREAKER_MAX_FAILURES_COUNT: int = 5
+    REDIS_PORT: int = 6379
+    REDIS_CB_DB: int = 1
+    REDIS_HOST: str = "redis"
 
     class Config:
         case_sensitive = True
