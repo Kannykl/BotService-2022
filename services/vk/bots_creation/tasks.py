@@ -1,73 +1,104 @@
 """Celery tasks module"""
+import traceback
 from enum import Enum
 
+import httpx
 from asgiref.sync import async_to_sync
-from celery.exceptions import MaxRetriesExceededError
-from celery.result import GroupResult
-from celery.result import ResultSet
 from httpx import AsyncClient
+from starlette.status import HTTP_200_OK
 
+from api.circuit_breaker import CircuitException
+from api.depends import get_cb_for_tasks
 from core.celery import app
 from core.config import logger
 from core.config import settings
+from schemas.task import Task
 from services.vk.bots_creation.bots import CreateVkBotsService
 from services.vk.bots_creation.phone_stock import OnlineSimPhoneStockService
+from services.vk.exceptions import StopCreatingBotsException
+from services.vk.exceptions import TaskFailed
 from services.vk.vk_service import VKService
 
 
 class Status(str, Enum):
     SUCCESS: str = "SUCCESS"
     FAILURE: str = "FAILURE"
+    CB_STATUS: str = "Service is not working now, try again later."
 
 
-async def create_bot(bot: list) -> None:
+@app.task
+def error_handler(request, exc, _):
+    """Error handler for tasks group. If one task failed this handler works."""
+    circuit_exception_name: str = "CircuitException"
+
+    if circuit_exception_name in repr(exc):
+        async_to_sync(async_update_task_status)(request.id, Status.CB_STATUS)
+
+    else:
+        async_to_sync(async_update_task_status)(request.id, Status.FAILURE)
+
+
+@app.task(bind=True)
+def success_handler(self, *args, **kwargs):
+    """Success handler for group tasks."""
+    async_to_sync(async_update_task_status)(self.request.id, Status.SUCCESS)
+
+
+async def create_bot(bot: tuple) -> None:
     """Send async request to db to create a bot."""
-    await AsyncClient(base_url=settings.BASE_DB_URL).post(
-        "create_bot/", json={"bot": {"username": bot[0], "password": bot[1]}}
-    )
+
+    try:
+        await AsyncClient(base_url=settings.BASE_DB_URL).post(
+            "create_bot/",
+            json={"bot": {"username": bot[0], "password": bot[1]}},
+        )
+
+    except (httpx.ConnectTimeout, httpx.ConnectError):
+        logger.error("Can not connect to db service and create_bot")
+        raise TaskFailed()
+
+
+async def async_get_task_by_id(task_id: str) -> Task | None:
+    """Send async request to db to get a task."""
+    try:
+        response = await AsyncClient(base_url=settings.BASE_DB_URL).get(
+            f"get_task_by_id/?task_id={task_id}",
+        )
+
+        return response.json() if response.status_code == HTTP_200_OK else None
+
+    except (httpx.ConnectTimeout, httpx.ConnectError):
+        logger.error("Can not connect to db service and create_bot")
+        raise TaskFailed()
 
 
 async def async_update_task_status(task_id: str, status: str) -> None:
-    await AsyncClient(base_url=settings.BASE_DB_URL).patch(
-        f"update_task/?task_id={task_id}&task_status={status}"
-    )
+    """Async request to db to update task status."""
+    try:
+        await AsyncClient(base_url=settings.BASE_DB_URL).patch(
+            f"update_task/?task_id={task_id}&task_status={status}"
+        )
+
+    except (httpx.ConnectTimeout, httpx.ConnectError):
+        logger.error("Can not connect to db service and update task status")
+        raise TaskFailed()
 
 
-@app.task(name="create_bots")
-def create_bots_task(count: int = 1) -> list:
+@app.task(name="create_bots", throws=(TaskFailed, CircuitException))
+def create_bots_task():
     """Start creating bots."""
+    func_name = traceback.extract_stack()[1][-2]
+    circuit_breaker = get_cb_for_tasks(func_name)
+
     phone_stock = OnlineSimPhoneStockService()
     bot_service = CreateVkBotsService(phone_stock)
 
-    bots = VKService(bot_service).create_bots(count)
+    with circuit_breaker:
+        try:
+            bot = VKService(bot_service).create_bot()
+            async_to_sync(create_bot)(bot)
 
-    return bots
+        except StopCreatingBotsException:
+            logger.error("Create bots tasks failed")
 
-
-@app.task()
-def create_bots_listener(result: str) -> None:
-    """After creating all bots send request to db to create bots."""
-
-    for bot in result:
-        async_to_sync(create_bot)(bot)
-        logger.info(f"{bot[0]} is added in DB!")
-
-
-@app.task(
-    bind=True, name="update_task_status", default_retry_delay=5, max_retries=50
-)
-def update_task_status(self, task_id: str) -> None:
-    """Update group task status."""
-    try:
-        result = GroupResult.restore(task_id)
-        result_set = ResultSet(result.results)
-
-        if result_set.successful():
-            async_to_sync(async_update_task_status)(task_id, Status.SUCCESS)
-        elif result_set.failed():
-            async_to_sync(async_update_task_status)(task_id, Status.FAILURE)
-        else:
-            raise self.retry()
-
-    except MaxRetriesExceededError:
-        async_to_sync(async_update_task_status)(task_id, Status.FAILURE)
+            raise TaskFailed

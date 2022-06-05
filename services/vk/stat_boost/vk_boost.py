@@ -1,11 +1,13 @@
 """VK boost service module"""
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
-from selenium.webdriver import Keys, ActionChains
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.wait import WebDriverWait
 from selenium import webdriver
+from selenium.common.exceptions import ElementNotInteractableException
+from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver import ActionChains
+from selenium.webdriver import Keys
+from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
-
+from selenium.webdriver.support.wait import WebDriverWait
 
 from core.config import logger
 from services.vk.exceptions import StopBoostException
@@ -118,9 +120,11 @@ class VKBoostService:
 
         options = webdriver.ChromeOptions()
         options.add_argument("--headless")
-        options.add_argument('--disable-dev-shm-usage')
+        options.add_argument("--disable-dev-shm-usage")
 
-        self.driver = webdriver.Remote("http://selenium_boost:4444/wd/hub", options=options)
+        self.driver = webdriver.Remote(
+            "http://selenium_boost:4444/wd/hub", options=options
+        )
         self.driver.implicitly_wait(5)
 
     def _remove_email_check_box(self) -> None:
@@ -144,7 +148,11 @@ class VKBoostService:
             )
             input_email.send_keys(Keys.ESCAPE)
 
-        except (TimeoutException, NoSuchElementException):
+        except (
+            TimeoutException,
+            NoSuchElementException,
+            ElementNotInteractableException,
+        ):
             logger.info("No email checkbox was found.")
 
     def like_post(self, post: str) -> None:

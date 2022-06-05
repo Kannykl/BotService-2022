@@ -1,10 +1,14 @@
+import uuid
+
 import uvicorn
 from fastapi import FastAPI
+from fastapi import Request
 from httpx import AsyncClient
 from starlette.middleware.cors import CORSMiddleware
 
 from api.api_v1.api import api_router
 from core.config import settings
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -24,6 +28,16 @@ if settings.BACKEND_CORS_ORIGINS:
     )
 
 app.include_router(api_router, prefix=settings.API_PREFIX)
+
+
+@app.middleware("http")
+async def add_request_id(request: Request, call_next):
+    """Add request id"""
+    request.headers.__dict__["_list"].append(
+        (b"x-request-id", f"{uuid.uuid4()}".encode())
+    )
+    response = await call_next(request)
+    return response
 
 
 @app.on_event("startup")
