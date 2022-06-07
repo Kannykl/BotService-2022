@@ -9,7 +9,7 @@ COPY ./requirements.txt /usr/stat_inc/requirements.txt
 
 
 RUN set -eux \
-    && apk python3-dev \
+    && apk add python3-dev \
     && pip install --upgrade pip setuptools wheel \
     && pip install -r /usr/stat_inc/requirements.txt \
     && rm -rf /root/.cache/pip
