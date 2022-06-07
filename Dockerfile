@@ -9,7 +9,8 @@ COPY ./requirements.txt /usr/stat_inc/requirements.txt
 
 
 RUN set -eux \
-    && apk add python3-dev \
+    && apk add --no-cache --virtual .build-deps build-base \
+        libressl-dev libffi-dev gcc musl-dev python3-dev \
     && pip install --upgrade pip setuptools wheel \
     && pip install -r /usr/stat_inc/requirements.txt \
     && rm -rf /root/.cache/pip
