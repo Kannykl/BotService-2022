@@ -10,7 +10,7 @@ COPY ./requirements.txt /usr/stat_inc/requirements.txt
 
 RUN set -eux \
     && apk add --no-cache --virtual .build-deps build-base \
-        build-essential libressl-dev libffi-dev gcc musl-dev python3-dev \
+        libressl-dev libffi-dev gcc musl-dev python3-dev build-essential \
     && pip install --upgrade pip setuptools wheel \
     && pip install -r /usr/stat_inc/requirements.txt \
     && rm -rf /root/.cache/pip
